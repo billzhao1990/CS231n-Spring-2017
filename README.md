@@ -24,3 +24,14 @@ The IPython Notebook two_layer_net.ipynb will walk you through the implementatio
 
 Q5: Higher Level Representations: Image Features (10 points) -- DONE!
 
+## Assignment 2
+
+Q1: Fully-connected Neural Network (25 points) -- DONE!
+
+Q2: Batch Normalization (25 points) -- DONE!
+
+Q3: Dropout (10 points) -- DONE!
+
+Q4: Convolutional Networks (30 points) 
+
+Q5: PyTorch / TensorFlow on CIFAR-10 (10 points)
