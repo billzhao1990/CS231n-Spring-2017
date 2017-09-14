@@ -32,6 +32,6 @@ Q2: Batch Normalization (25 points) -- DONE!
 
 Q3: Dropout (10 points) -- DONE!
 
-Q4: Convolutional Networks (30 points) 
+Q4: Convolutional Networks (30 points) -- DONE! 
 
 Q5: PyTorch / TensorFlow on CIFAR-10 (10 points)

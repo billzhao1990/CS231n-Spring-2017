@@ -188,7 +188,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         sample_var = np.var(x, axis = 0)
         
         x_hat = (x - sample_mean)/np.sqrt(sample_var + eps)
-        
+
         out = x_hat * gamma + beta
         
         running_mean = momentum * running_mean + (1 - momentum) * sample_mean
@@ -445,22 +445,25 @@ def conv_forward_naive(x, w, b, conv_param):
         int(1. + (W + 2. * pad - WW) / stride)))
     
     for n in range(N):
-        # the n-th sample of input and pad the sample
+        # fetch the n-th sample of input and pad the sample
         x_sample_pad = np.pad(x[n, :, :, :], pad_width=[(0,0),(pad,pad),(pad,pad)], mode='constant')
         
-        out_h_target = -1 # the target height index of output
-        
-        # the top index of input
-        for input_top in range(0, H + 2*pad - HH + 1, stride):
+        out_h_target = -1 # initiate the target height index of output
+             
+        for input_top in range(0, H + 2*pad - HH + 1, stride): # the top index of input
+            input_bottom = HH + input_top # the bottom index of input
+            
             out_h_target += 1
             
-            out_w_target = -1 # the target width index of output
-            # the left index of input
-            for input_left in range(0, W+2*pad-WW+1, stride):
+            out_w_target = -1 # initiate the target width index of output
+            
+            for input_left in range(0, W+2*pad-WW+1, stride): # the left index of input
+                input_right = WW + input_left # the right index of input
+                
                 out_w_target += 1
 
                 # the input
-                input_x = x_sample_pad[:,input_top:(HH+input_top), input_left:(input_left+WW)]
+                input_x = x_sample_pad[:,input_top:input_bottom, input_left:input_right]
                 
                 # iterate each feature
                 for f in range(F):
@@ -529,11 +532,10 @@ def conv_backward_naive(dout, cache):
                     
                     
                     dw[f, :,:,:] += dout[n, f, out_h_target, out_w_target] * input_x
+                    dx_sample_pad[:, input_top:(HH+input_top), input_left:(input_left+WW)] += dout[n, f, out_h_target, out_w_target] * weight
+                    db[f] += dout[n, f, out_h_target, out_w_target]
                     
-                    
-                    dx_sample_pad[:, input_top:(HH+input_top), input_left:(input_left+WW)] += weight
-                    
-        dx[n,:,:,:] = dx_sample_pad[:, 1:-1, 1:-1]
+        dx[n,:,:,:] += dx_sample_pad[:, 1:-1, 1:-1]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -559,7 +561,36 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+    
+    out = np.zeros((N, C,\
+            int(1 + (H - pool_height) / stride),\
+            int(1 + (W - pool_width) / stride)))
+    
+    for n in range(N):
+        # fetch the n-th sample of input
+        x_sample = x[n, :, :, :]
+        
+        out_h_target = -1 # initiate the target height index of output
+             
+        for input_top in range(0, H - pool_height + 1, stride): # the top index of input
+            input_bottom = input_top + pool_height # the bottom index of input
+            
+            out_h_target += 1
+            
+            out_w_target = -1 # initiate the target width index of output
+            
+            for input_left in range(0, W - pool_width + 1, stride): # the left index of input
+                input_right = input_left + pool_width # the right index of input
+                
+                out_w_target += 1
+
+                # the input
+                input_x = x_sample[:,input_top:input_bottom, input_left:input_right]
+                
+                for c in range(C): 
+                    out[n, c, out_h_target, out_w_target] = np.max(input_x[c,:,:])      
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -582,7 +613,41 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the max pooling backward pass                           #
     ###########################################################################
-    pass
+    from numpy import unravel_index
+    
+    x, pool_param = cache
+    
+    N, C, H, W = x.shape
+    pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+    
+    dx = np.zeros(x.shape)
+    
+    for n in range(N):
+        # fetch the n-th sample of input
+        x_sample = x[n, :, :, :]
+        
+        out_h_target = -1 # initiate the target height index of output
+             
+        for input_top in range(0, H - pool_height + 1, stride): # the top index of input
+            input_bottom = input_top + pool_height # the bottom index of input
+            
+            out_h_target += 1
+            
+            out_w_target = -1 # initiate the target width index of output
+            
+            for input_left in range(0, W - pool_width + 1, stride): # the left index of input
+                input_right = input_left + pool_width # the right index of input
+                
+                out_w_target += 1
+
+                # the input
+                input_x = x_sample[:,input_top:input_bottom, input_left:input_right]
+                
+                for c in range(C): 
+                    arg_index_row, arg_index_col = unravel_index(input_x[c,:,:].argmax(), input_x[c,:,:].shape)
+                    arg_index_row += input_top 
+                    arg_index_col += input_left
+                    dx[n, c, arg_index_row, arg_index_col] += dout[n, c, out_h_target, out_w_target]     
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -619,8 +684,17 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # HINT: You can implement spatial batch normalization using the vanilla   #
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
-    ###########################################################################
-    pass
+    ###########################################################################    
+    '''
+    This part is refered to https://github.com/martinkersner/cs231n/blob/master/assignment2/layers.py
+    '''
+    
+    N, C, H, W = x.shape
+   
+    out, cache = batchnorm_forward(x.transpose(0,2,3,1).reshape(-1, C), gamma, beta, bn_param)
+    
+    out = out.reshape(N,H,W,C).transpose(0,3,1,2)
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -650,7 +724,11 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = dout.shape
+    
+    dx, dgamma, dbeta = batchnorm_backward(dout.transpose(0,2,3,1).reshape(-1, C), cache)
+    
+    dx = dx.reshape(N,H,W,C).transpose(0,3,1,2)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
